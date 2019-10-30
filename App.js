@@ -28,6 +28,8 @@ import {
 import {
   accelerometer,
   gyroscope,
+  magenetometer,
+  barometer,
   setUpdateIntervalForType,
   SensorTypes
 } from "react-native-sensors";
@@ -124,7 +126,7 @@ const styles = StyleSheet.create({
 
 function startSensors() {
   const subscription = accelerometer.subscribe(({ x, y, z, timestamp }) => {
-    const res = `${x}, ${y}, ${z}, ${timestamp}`;
+    let res = `${x}, ${y}, ${z}, ${timestamp}`;
     alert(res);
     subscription.unsubscribe();
   });
