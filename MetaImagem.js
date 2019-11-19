@@ -28,7 +28,7 @@ import {
 import {
   accelerometer,
   gyroscope,
-  magenetometer,
+  magnetometer,
   barometer,
   setUpdateIntervalForType,
   SensorTypes
@@ -41,26 +41,41 @@ export default class MetaImagem extends Component {
 
     this.state = {
       timer: null,
-      timerFn: null,
-      recording: false,
+      isRecording: false,
+      isWaitingData: false,
+      lastSensor: null,
 
-      // current data
-      curAccelerometer: { x: 0, y: 0, z: 0, timestamp: 0 },
-      curGyroscope: { x: 0, y: 0, z: 0, timestamp: 0 },
-      curMagnetometer: { x: 0, y: 0, z: 0, timestamp: 0 },
-      curBarometer: 0,
-
-      // temp recorded data
-      accelerometers: [],
-      gyroscopes: [],
-      magenetometers: [],
-      barometers: [],
+      // array data
+      accelerometer: [],
+      gyroscope: [],
+      magnetometer: [],
+      barometer: [],
     }
+
+    this.timerFn = null;
+    this.timerInterval = null;
 
     this.accelerometerSubscription = null;
     this.gyroscopeSubscription = null;
-    this.magenetometerSubscription = null;
+    this.magnetometerSubscription = null;
     this.barometerSubscription = null;
+
+    this.state = Object.assign(this.state, this.getInitialStates());
+  }
+
+  getInitialStates() {
+    return {
+      current: {
+        accelerometer: { x: 0, y: 0, z: 0, timestamp: 0 },
+        gyroscope: { x: 0, y: 0, z: 0, timestamp: 0 },
+        magnetometer: { x: 0, y: 0, z: 0, timestamp: 0 },
+        barometer: 0
+      },
+      accelerometer: [],
+      gyroscope: [],
+      magnetometer: [],
+      barometer: [],
+    }
   }
 
   startSensors() {
@@ -68,57 +83,107 @@ export default class MetaImagem extends Component {
     this.subscribeGyroscope();
     this.subscribeMagnetometer();
     this.subscribeBarometer();
-    this.setState({ recording: true });
+
+    this.setState({ isRecording: true, isWaitingData: true });
+
+    const t = this
+    this.timerFn = setTimeout(function () {
+      t.stopSensors();
+    }, 6e3);
+  }
+
+  stopSensors() {
+    if (this.timerFn) clearTimeout(this.timerFn);
+
+    if (this.accelerometerSubscription) this.accelerometerSubscription.unsubscribe();
+    if (this.gyroscopeSubscription) this.gyroscopeSubscription.unsubscribe();
+    if (this.magnetometerSubscription) this.magnetometerSubscription.unsubscribe();
+    if (this.barometerSubscription) this.barometerSubscription.unsubscribe();
+
+    this.setState({ isRecording: false });
+    this.sendData();
+  }
+
+  sendData() {
+    console.log('send', this.state.accelerometer);
   }
 
   subscribeAccelerometer() {
+    this.setState({ accelerometer: this.getInitialStates().accelerometer });
     this.accelerometerSubscription = accelerometer.subscribe((data) => {
-      this.setState({ curAccelerometer: data });
-      // let res = `${x}, ${y}, ${z}, ${timestamp}`;
-      console.log(data);
-      this.accelerometerSubscription.unsubscribe();
+      this.recordData({ store: 'accelerometer', data: data });
     });
   }
 
   subscribeGyroscope() {
-
+    this.setState({ gyroscope: this.getInitialStates().gyroscope });
+    this.gyroscopeSubscription = gyroscope.subscribe((data) => {
+      this.recordData({ store: 'gyroscope', data: data });
+    });
   }
 
   subscribeMagnetometer() {
-
+    this.setState({ gyroscope: this.getInitialStates().magnetometer });
+    this.magnetometerSubscription = magnetometer.subscribe((data) => {
+      this.recordData({ store: 'magnetometer', data: data });
+    });
   }
 
   subscribeBarometer() {
-
+    this.setState({ barometer: this.getInitialStates().barometer });
+    this.barometerSubscription = barometer.subscribe((data) => {
+      this.recordData({ store: 'barometer', data: data });
+    });
   }
 
-  verifyTimer() {
+  recordData(target) {
 
+    if (this.state.isWaitingData && target.store != this.state.lastSensor) {
+
+      this.setState({ isWaitingData: false, lastSensor: target.store });
+
+      let current = { ...this.state.current };
+      current[target.store] = target.data;
+
+      let data = [...this.state[target.store], target.data];
+      this.setState({ [target.store]: data, current: current });
+
+      const t = this;
+      setTimeout(function () {
+        t.setState({ isWaitingData: true });
+      }, 330);
+    }
   }
-
-  storeData() { }
 
   render() {
+
+    let btn = (!this.state.isRecording ?
+      <Button
+        title="Começar ?!"
+        onPress={() => this.startSensors()} />
+      :
+      <Button
+        title="Parar ?"
+        onPress={() => this.startSensors()} />
+    )
 
     return (
       <>
         <ScrollView>
           <View>
-            <Button
-              title="Começar ?"
-              onPress={() => this.startSensors()} />
+            {btn}
           </View>
           <View>
-            <Text>Accelerometer: {JSON.stringify(this.state.curAccelerometer)}</Text>
+            <Text>Accelerometer: {JSON.stringify(this.state.current.accelerometer)}</Text>
           </View>
           <View>
-            <Text>gyroscope: {JSON.stringify(this.state.curGyroscope)}</Text>
+            <Text>gyroscope: {JSON.stringify(this.state.current.gyroscope)}</Text>
           </View>
           <View>
-            <Text>Magnetometer: {JSON.stringify(this.state.curMagnetometer)}</Text>
+            <Text>Magnetometer: {JSON.stringify(this.state.current.magnetometer)}</Text>
           </View>
           <View>
-            <Text>Barometer: {JSON.stringify(this.state.curBarometer)}</Text>
+            <Text>Barometer: {JSON.stringify(this.state.current.barometer)}</Text>
           </View>
         </ScrollView>
       </>
@@ -127,81 +192,3 @@ export default class MetaImagem extends Component {
   }
 
 }
-
-// const App = () => {
-
-//   const [accelerometer, setAccelerometer] = useState(0);
-
-//   return (
-//     <>
-//       <StatusBar barStyle="dark-content" />
-//       <SafeAreaView>
-//         <ScrollView
-//           contentInsetAdjustmentBehavior="automatic"
-//           style={styles.scrollView}>
-//           <View style={styles.body}>
-//             <View style={styles.sectionContainer}>
-//               <Button
-//                 title="Começar ?"
-//                 onPress={() => startSensors()} />
-//               <Text style={styles.sectionTitle}>Step One</Text>
-//               <Text>
-//                 {{ this.state.}}
-//               </Text>
-//             </View>
-//             <LearnMoreLinks />
-//           </View>
-//         </ScrollView>
-//       </SafeAreaView>
-//     </>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   scrollView: {
-//     backgroundColor: Colors.lighter,
-//   },
-//   engine: {
-//     position: 'absolute',
-//     right: 0,
-//   },
-//   body: {
-//     backgroundColor: Colors.white,
-//   },
-//   sectionContainer: {
-//     marginTop: 32,
-//     paddingHorizontal: 24,
-//   },
-//   sectionTitle: {
-//     fontSize: 24,
-//     fontWeight: '600',
-//     color: Colors.black,
-//   },
-//   sectionDescription: {
-//     marginTop: 8,
-//     fontSize: 18,
-//     fontWeight: '400',
-//     color: Colors.dark,
-//   },
-//   highlight: {
-//     fontWeight: '700',
-//   },
-//   footer: {
-//     color: Colors.dark,
-//     fontSize: 12,
-//     fontWeight: '600',
-//     padding: 4,
-//     paddingRight: 12,
-//     textAlign: 'right',
-//   },
-// });
-
-// function startSensors() {
-//   const subscription = accelerometer.subscribe(({ x, y, z, timestamp }) => {
-//     let res = `${x}, ${y}, ${z}, ${timestamp}`;
-//     alert(res);
-//     subscription.unsubscribe();
-//   });
-// }
-
-// export default App;
