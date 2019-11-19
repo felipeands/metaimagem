@@ -26,6 +26,9 @@ import {
   SensorTypes
 } from "react-native-sensors";
 
+import FirebaseService from './firebaseService.js';
+import { firebaseDatabase } from './firebaseUtils.js'
+
 export default class MetaImagem extends Component {
 
   constructor(props) {
@@ -33,7 +36,7 @@ export default class MetaImagem extends Component {
 
     this.state = {
       countDown: 0,
-      timerMs: 60000,
+      timerMs: 6000,
       isRecording: false,
       lastSensor: null,
       timerInterval: 1000,
@@ -54,6 +57,12 @@ export default class MetaImagem extends Component {
     this.barometerSubscription = null;
 
     this.state = Object.assign(this.state, this.getInitialStates());
+  }
+
+  componentDidMount() {
+    FirebaseService.getDataList('history', (res) => {
+      console.log('list', res);
+    });
   }
 
   getInitialStates() {
@@ -77,7 +86,7 @@ export default class MetaImagem extends Component {
     this.subscribeMagnetometer();
     this.subscribeBarometer();
 
-    this.setState({ isRecording: true, countDown: 60 });
+    this.setState({ isRecording: true, countDown: (this.state.timerMs / this.state.timerInterval) });
 
     const t = this;
     this.timerFn = setTimeout(function () {
@@ -87,7 +96,7 @@ export default class MetaImagem extends Component {
     this.timerCountdown = setInterval(function () {
       t.setState({ countDown: t.state.countDown - 1 });
       if (t.state.countDown <= 0) { clearInterval(t.timerCountdown); }
-    }, 1000);
+    }, this.state.timerInterval);
   }
 
   stopSensors() {
@@ -106,10 +115,18 @@ export default class MetaImagem extends Component {
   }
 
   sendData() {
-    console.log('send a', this.state.accelerometer);
-    console.log('send g', this.state.gyroscope);
-    console.log('send m', this.state.magnetometer);
-    console.log('send b', this.state.barometer);
+
+    const objData = {
+      accelerometer: this.state.accelerometer,
+      gyroscope: this.state.gyroscope,
+      magnetometer: this.state.magnetometer,
+      barometer: this.state.barometer
+    }
+
+    console.log('send', objData);
+    
+    const newId = firebaseDatabase.ref().child('history').push(objData);
+    console.log('id', newId);
   }
 
   subscribeAccelerometer() {
