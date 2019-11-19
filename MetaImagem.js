@@ -1,11 +1,3 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- */
-
 import React, { Component } from 'react';
 import {
   SafeAreaView,
@@ -40,10 +32,11 @@ export default class MetaImagem extends Component {
     super(props);
 
     this.state = {
-      timer: null,
+      countDown: 0,
+      timerMs: 60000,
       isRecording: false,
-      isWaitingData: false,
       lastSensor: null,
+      timerInterval: 1000,
 
       // array data
       accelerometer: [],
@@ -53,7 +46,7 @@ export default class MetaImagem extends Component {
     }
 
     this.timerFn = null;
-    this.timerInterval = null;
+    this.timerCountdown = null
 
     this.accelerometerSubscription = null;
     this.gyroscopeSubscription = null;
@@ -84,16 +77,22 @@ export default class MetaImagem extends Component {
     this.subscribeMagnetometer();
     this.subscribeBarometer();
 
-    this.setState({ isRecording: true, isWaitingData: true });
+    this.setState({ isRecording: true, countDown: 60 });
 
-    const t = this
+    const t = this;
     this.timerFn = setTimeout(function () {
       t.stopSensors();
-    }, 6e3);
+    }, this.state.timerMs);
+
+    this.timerCountdown = setInterval(function () {
+      t.setState({ countDown: t.state.countDown - 1 });
+      if (t.state.countDown <= 0) { clearInterval(t.timerCountdown); }
+    }, 1000);
   }
 
   stopSensors() {
     if (this.timerFn) clearTimeout(this.timerFn);
+    if (this.timerCountdown) clearInterval(this.timerCountdown);
 
     if (this.accelerometerSubscription) this.accelerometerSubscription.unsubscribe();
     if (this.gyroscopeSubscription) this.gyroscopeSubscription.unsubscribe();
@@ -102,13 +101,19 @@ export default class MetaImagem extends Component {
 
     this.setState({ isRecording: false });
     this.sendData();
+
+    this.timerFn
   }
 
   sendData() {
-    console.log('send', this.state.accelerometer);
+    console.log('send a', this.state.accelerometer);
+    console.log('send g', this.state.gyroscope);
+    console.log('send m', this.state.magnetometer);
+    console.log('send b', this.state.barometer);
   }
 
   subscribeAccelerometer() {
+    setUpdateIntervalForType(SensorTypes.accelerometer, this.state.timerInterval);
     this.setState({ accelerometer: this.getInitialStates().accelerometer });
     this.accelerometerSubscription = accelerometer.subscribe((data) => {
       this.recordData({ store: 'accelerometer', data: data });
@@ -116,6 +121,7 @@ export default class MetaImagem extends Component {
   }
 
   subscribeGyroscope() {
+    setUpdateIntervalForType(SensorTypes.gyroscope, this.state.timerInterval);
     this.setState({ gyroscope: this.getInitialStates().gyroscope });
     this.gyroscopeSubscription = gyroscope.subscribe((data) => {
       this.recordData({ store: 'gyroscope', data: data });
@@ -123,6 +129,7 @@ export default class MetaImagem extends Component {
   }
 
   subscribeMagnetometer() {
+    setUpdateIntervalForType(SensorTypes.magnetometer, this.state.timerInterval);
     this.setState({ gyroscope: this.getInitialStates().magnetometer });
     this.magnetometerSubscription = magnetometer.subscribe((data) => {
       this.recordData({ store: 'magnetometer', data: data });
@@ -130,6 +137,7 @@ export default class MetaImagem extends Component {
   }
 
   subscribeBarometer() {
+    setUpdateIntervalForType(SensorTypes.barometer, this.state.timerInterval);
     this.setState({ barometer: this.getInitialStates().barometer });
     this.barometerSubscription = barometer.subscribe((data) => {
       this.recordData({ store: 'barometer', data: data });
@@ -138,20 +146,15 @@ export default class MetaImagem extends Component {
 
   recordData(target) {
 
-    if (this.state.isWaitingData && target.store != this.state.lastSensor) {
-
-      this.setState({ isWaitingData: false, lastSensor: target.store });
+    if (target.store != this.state.lastSensor) {
 
       let current = { ...this.state.current };
       current[target.store] = target.data;
 
-      let data = [...this.state[target.store], target.data];
-      this.setState({ [target.store]: data, current: current });
+      console.log('last', target.store);
 
-      const t = this;
-      setTimeout(function () {
-        t.setState({ isWaitingData: true });
-      }, 330);
+      let data = [...this.state[target.store], target.data];
+      this.setState({ [target.store]: data, current: current, lastSensor: target.store });
     }
   }
 
@@ -164,12 +167,15 @@ export default class MetaImagem extends Component {
       :
       <Button
         title="Parar ?"
-        onPress={() => this.startSensors()} />
+        onPress={() => this.stopSensors()} />
     )
 
     return (
       <>
         <ScrollView>
+          <View>
+            <Text>Tempo: {this.state.countDown}</Text>
+          </View>
           <View>
             {btn}
           </View>
