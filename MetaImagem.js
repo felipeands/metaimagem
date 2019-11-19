@@ -110,8 +110,6 @@ export default class MetaImagem extends Component {
 
     this.setState({ isRecording: false });
     this.sendData();
-
-    this.timerFn
   }
 
   sendData() {
