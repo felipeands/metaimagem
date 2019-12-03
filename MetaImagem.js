@@ -36,7 +36,7 @@ export default class MetaImagem extends Component {
 
     this.state = {
       countDown: 0,
-      timerMs: 6000,
+      timerMs: 60000,
       isRecording: false,
       lastSensor: null,
       timerInterval: 1000,
