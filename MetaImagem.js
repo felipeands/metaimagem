@@ -46,6 +46,7 @@ export default class MetaImagem extends Component {
       gyroscope: [],
       magnetometer: [],
       barometer: [],
+      geolocation: []
     }
 
     this.timerFn = null;
@@ -55,13 +56,14 @@ export default class MetaImagem extends Component {
     this.gyroscopeSubscription = null;
     this.magnetometerSubscription = null;
     this.barometerSubscription = null;
+    this.geolocationSubscription = null
 
     this.state = Object.assign(this.state, this.getInitialStates());
   }
 
   componentDidMount() {
     FirebaseService.getDataList('history', (res) => {
-      console.log('list', res);
+      // console.log('list', res);
     });
   }
 
@@ -77,6 +79,7 @@ export default class MetaImagem extends Component {
       gyroscope: [],
       magnetometer: [],
       barometer: [],
+      geolocation: []
     }
   }
 
@@ -85,6 +88,7 @@ export default class MetaImagem extends Component {
     this.subscribeGyroscope();
     this.subscribeMagnetometer();
     this.subscribeBarometer();
+    this.subscribeGeolocation();
 
     this.setState({ isRecording: true, countDown: (this.state.timerMs / this.state.timerInterval) });
 
@@ -107,6 +111,7 @@ export default class MetaImagem extends Component {
     if (this.gyroscopeSubscription) this.gyroscopeSubscription.unsubscribe();
     if (this.magnetometerSubscription) this.magnetometerSubscription.unsubscribe();
     if (this.barometerSubscription) this.barometerSubscription.unsubscribe();
+    if (this.geolocationSubscription) geolocation.clearWatch(this.geolocationSubscription);
 
     this.setState({ isRecording: false });
     this.sendData();
@@ -118,11 +123,12 @@ export default class MetaImagem extends Component {
       accelerometer: this.state.accelerometer,
       gyroscope: this.state.gyroscope,
       magnetometer: this.state.magnetometer,
-      barometer: this.state.barometer
+      barometer: this.state.barometer,
+      geolocation: this.state.geolocation
     }
 
     console.log('send', objData);
-    
+
     const newId = firebaseDatabase.ref().child('history').push(objData);
     console.log('id', newId);
   }
@@ -157,6 +163,17 @@ export default class MetaImagem extends Component {
     this.barometerSubscription = barometer.subscribe((data) => {
       this.recordData({ store: 'barometer', data: data });
     });
+  }
+
+  subscribeGeolocation() {
+    this.geolocationSubscription = navigator.geolocation.getCurrentPosition(position => {
+      const data = JSON.stringify(position);
+      if (data !== undefined) {
+        this.recordData({ store: 'geolocation', data: data });
+      }
+    }, (error) => Alert.alert(error.message),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+    );
   }
 
   recordData(target) {
