@@ -166,7 +166,7 @@ export default class MetaImagem extends Component {
   }
 
   subscribeGeolocation() {
-    this.geolocationSubscription = navigator.geolocation.getCurrentPosition(position => {
+    this.geolocationSubscription = navigator.geolocation.watchPosition(position => {
       const data = JSON.stringify(position);
       if (data !== undefined) {
         this.recordData({ store: 'geolocation', data: data });
